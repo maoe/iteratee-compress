@@ -8,7 +8,9 @@ module Data.Iteratee.LZMA
   , enumDecompressRandom
 
   -- * Parameters
-  , DecompressParams(..), defaultDecompressParams
+  , DecompressParams, defaultDecompressParams
+  , decompressBufferSize
+  , decompressMemoryLimit
   ) where
 import Control.Exception
 import Control.Monad.Trans
