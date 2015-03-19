@@ -17,6 +17,7 @@ import Control.Monad.Trans
 
 import Data.ByteString (ByteString)
 import Data.Iteratee
+import qualified Data.ByteString as S
 import qualified Pipes.Internal as P
 
 import Codec.Compression.LZMA.Incremental
@@ -72,7 +73,7 @@ enumDecompressRandom index params =
                 onCont k Nothing =
                     (k $ Chunk uncompressed, Just Read)
                 onCont k (Just (fromException -> Just (SeekException pos))) =
-                    (k $ Chunk uncompressed, Just $ PRead $ fromIntegral pos)
+                    (k $ Chunk S.empty, Just $ PRead $ fromIntegral pos)
                 onCont _ (Just e) =
                     (throwErr e, Nothing)
         go (P.M m) inner = do
