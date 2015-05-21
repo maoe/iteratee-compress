@@ -11,6 +11,9 @@ module Data.Iteratee.LZMA
   , DecompressParams, defaultDecompressParams
   , decompressBufferSize
   , decompressMemoryLimit
+
+  -- * Utils
+  , isCompressed
   ) where
 import Control.Exception
 import Control.Monad.Trans
@@ -99,3 +102,23 @@ enumDecompressRandom index params =
                     (k $ EOF Nothing, Just $ PRead $ fromIntegral pos)
                 onCont k e =
                     (k $ EOF e, Just Read)
+
+isCompressed :: forall m. MonadIO m => Iteratee ByteString m Bool
+isCompressed = do
+    seek 0
+    go hasMagicBytes
+    where
+        go :: DecodeStream m a -> Iteratee ByteString m a
+        go stream = case stream of
+            P.Request seekRequest next -> do
+                case seekRequest of
+                    PRead pos -> seek $ fromIntegral pos
+                    Read -> return ()
+                chunk <- getChunk
+                go $ next chunk
+            P.Respond _ next ->
+                go $ next ()
+            P.M m ->
+                lift m >>= go
+            P.Pure a ->
+                return a
