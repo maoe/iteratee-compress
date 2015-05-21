@@ -105,9 +105,11 @@ enumDecompressRandom index params =
                 onCont k e =
                     (k $ EOF e, Just Read)
 
+-- | Check if the stream is XZ compressed
 isCompressed :: forall m. MonadIO m => Iteratee ByteString m Bool
 isCompressed = seek 0 >> decodeToIteratee hasMagicBytes
 
+-- | Decode XZ index in the stream
 decodeIndex :: MonadIO m => FileOffset -> Iteratee ByteString m Index
 decodeIndex =
     fmap fst . decodeToIteratee . hoist liftIO . decodeIndexIO . fromIntegral
