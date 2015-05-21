@@ -14,16 +14,18 @@ module Data.Iteratee.LZMA
 
   -- * Utils
   , isCompressed
+  , decodeIndex
   ) where
 import Control.Exception
 import Control.Monad.Trans
 
 import Data.ByteString (ByteString)
 import Data.Iteratee
+import Pipes (hoist)
 import qualified Data.ByteString as S
 import qualified Pipes.Internal as P
 
-import Codec.Compression.LZMA.Incremental
+import Codec.Compression.LZMA.Incremental hiding (decodeIndex)
 
 -- | Decompress the input and send to inner iteratee. If there is end of LZMA
 -- stream it is left unprocessed.
@@ -104,21 +106,21 @@ enumDecompressRandom index params =
                     (k $ EOF e, Just Read)
 
 isCompressed :: forall m. MonadIO m => Iteratee ByteString m Bool
-isCompressed = do
-    seek 0
-    go hasMagicBytes
+isCompressed = seek 0 >> decodeToIteratee hasMagicBytes
+
+decodeIndex :: MonadIO m => FileOffset -> Iteratee ByteString m Index
+decodeIndex =
+    fmap fst . decodeToIteratee . hoist liftIO . decodeIndexIO . fromIntegral
+
+decodeToIteratee :: Monad m => DecodeStream m a -> Iteratee ByteString m a
+decodeToIteratee = go
     where
-        go :: DecodeStream m a -> Iteratee ByteString m a
-        go stream = case stream of
-            P.Request seekRequest next -> do
-                case seekRequest of
-                    PRead pos -> seek $ fromIntegral pos
-                    Read -> return ()
-                chunk <- getChunk
-                go $ next chunk
-            P.Respond _ next ->
-                go $ next ()
-            P.M m ->
-                lift m >>= go
-            P.Pure a ->
-                return a
+        go (P.Request seekRequest next) = do
+            case seekRequest of
+                PRead pos -> seek $ fromIntegral pos
+                Read -> return ()
+            chunk <- getChunk
+            go $ next chunk
+        go (P.Respond _ next) = go $ next ()
+        go (P.M m) = lift m >>= go
+        go (P.Pure a) = return a
